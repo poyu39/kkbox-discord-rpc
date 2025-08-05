@@ -1,0 +1,12 @@
+[project]
+name = "kkbox-discord-rpc"
+version = "4.0.0"
+description = "This is a tool that allows Discord to display rich KKBOX statuses!"
+readme = "README.md"
+requires-python = "==3.12.11"
+dependencies = [
+    "pypresence",
+    "pychrome",
+    "psutil",
+    "isort"
+]
