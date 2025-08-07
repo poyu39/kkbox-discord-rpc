@@ -1,0 +1,1 @@
+uv run nuitka --standalone --onefile --windows-icon-from-ico="storage\icon.ico" --output-filename="KKBOX_Discord_RPC.exe" --output-dir="dist" --remove-output --assume-yes-for-downloads --plugin-enable=anti-bloat --nofollow-import-to=tkinter --nofollow-import-to=matplotlib --nofollow-import-to=numpy --nofollow-import-to=scipy --windows-console-mode=disable src\app.py
