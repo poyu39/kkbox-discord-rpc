@@ -136,8 +136,8 @@ class KKBOX:
         play        = self._get_xpath("//button[@class='_button-icon_1h9pm_1 k-icon _opacity-transition_1h9pm_30 k-icon-now_playing-play control']//span[1]")
         pause       = self._get_xpath("//button[@class='_button-icon_1h9pm_1 k-icon _opacity-transition_1h9pm_30 k-icon-now_playing-pause control']//span[1]")
         
-        if '' in (title, artist, image, now_time):
-            return Player('', '', '', 0, 'paused')
+        if '' in (title, artist, image, quality, now_time, song_len):
+            return Player('', '', '', '', 0, 0, '')
         
         now_time = int(now_time[0]) * 600 + int(now_time[1]) * 60 + int(now_time[3]) * 10 + int(now_time[4])
         song_len = int(song_len[0]) * 600 + int(song_len[1]) * 60 + int(song_len[3]) * 10 + int(song_len[4])
@@ -178,14 +178,15 @@ if __name__ == '__main__':
         try:
             player = app.get_player()
             
-            app.logger.info(f'status: {player.status}')
-            app.logger.info(f'title: {player.title}')
-            app.logger.info(f'artist: {player.artist}')
-            app.logger.info(f'quality: {player.quality}')
-            app.logger.info(f'now_time: {player.now_time}')
-            app.logger.info(f'song_len: {player.song_len}\n')
-            
             if player.status == 'playing' and not rpc.is_showing:
+                
+                app.logger.info(f'status: {player.status}')
+                app.logger.info(f'title: {player.title}')
+                app.logger.info(f'artist: {player.artist}')
+                app.logger.info(f'quality: {player.quality}')
+                app.logger.info(f'now_time: {player.now_time}')
+                app.logger.info(f'song_len: {player.song_len}\n')
+                
                 start_time = int(time.time() - player.now_time) * 1000
                 end_time = int(time.time() + player.song_len) * 1000
                 rpc.update(

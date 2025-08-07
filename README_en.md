@@ -20,8 +20,8 @@
 
 ## ✨ How to Use
 
-- Click here to download the latest version of [KKBOX Discord RPC](https://github.com/poyu39/KKBOX_Discord_RPC/releases/download/v4.1.0/KKBOX_Discord_RPC_v4.1.0.exe)
+- Click here to download the latest version of [KKBOX Discord RPC](https://github.com/poyu39/KKBOX_Discord_RPC/releases/download/v4.1.1/KKBOX_Discord_RPC_v4.1.1.exe)
 
-- To display KKBOX status on Discord, first run `KKBOX_Discord_RPC_v4.1.0.exe`, which will automatically open KKBOX. This program will capture playback content in the background. If you don't want to use this feature, you can directly open the official `KKBOX.exe`.
+- To display KKBOX status on Discord, first run `KKBOX_Discord_RPC_v4.1.1.exe`, which will automatically open KKBOX. This program will capture playback content in the background. If you don't want to use this feature, you can directly open the official `KKBOX.exe`.
 
 ---
