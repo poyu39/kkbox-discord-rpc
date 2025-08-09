@@ -12,6 +12,31 @@ from pypresence import Presence
 from pypresence.types import ActivityType
 
 
+class Player:
+    def __init__(self, title=None, artist=None, track_url=None, image=None, quality=None, now_time=None, song_len=None, status=None):
+        self.title = title
+        self.artist = artist
+        self.track_url = track_url
+        self.image = image
+        self.quality = quality
+        self.now_time = now_time
+        self.song_len = song_len
+        self.status = status
+    
+    def print_info(self, logger: logging.Logger):
+        logger.info(f'status: {self.status}')
+        logger.info(f'title: {self.title}')
+        logger.info(f'artist: {self.artist}')
+        logger.info(f'quality: {self.quality}')
+        logger.info(f'now_time: {self.now_time}')
+        logger.info(f'song_len: {self.song_len}')
+        logger.info(f'track_url: {self.track_url}')
+        logger.info(f'image: {self.image}\n')
+    
+    def have_empty(self):
+        return any(attr is None for attr in [self.title, self.artist, self.track_url, self.image, self.quality, self.now_time, self.song_len, self.status])
+
+
 class DiscordRPC:
     def __init__(self, application_id):
         self.rpc = Presence(application_id)
@@ -24,30 +49,34 @@ class DiscordRPC:
         except Exception as e:
             return False
     
-    def update(self, state, details, large_image, large_text, small_image, small_text, start, end):
+    def update(self, player: Player):
+        start_time = time.time() - player.now_time
+        end_time = start_time + player.song_len
         self.rpc.update(
             payload_override = {
-                "cmd": "SET_ACTIVITY",
-                "args": {
-                    "pid": os.getpid(),
-                    "activity": {
-                        "type": ActivityType.LISTENING.value,
-                        "state": state,
-                        "details": details,
-                        "timestamps": {
-                            "start": start,
-                            "end": end
+                'cmd': 'SET_ACTIVITY',
+                'args': {
+                    'pid': os.getpid(),
+                    'activity': {
+                        'type': ActivityType.LISTENING.value,
+                        'state': player.artist,
+                        'details': player.title,
+                        'timestamps': {
+                            'start': int(start_time) * 1000,
+                            'end': int(end_time) * 1000
                         },
-                        "assets": {
-                            "large_image": large_image,
-                            "large_text": large_text,
-                            "small_image": small_image,
-                            "small_text": small_text
+                        'assets': {
+                            'large_image': player.image,
+                            'large_text': player.quality if player.quality else 'No Quality',
+                            'large_url': player.track_url,
+                            'small_image': 'https://github.com/poyu39/kkbox-discord-rpc/blob/main/media/icon_128.png?raw=true',
+                            'small_text': 'KKBOX Discord RPC',
+                            'small_url': 'https://github.com/poyu39/kkbox-discord-rpc'
                         },
-                        "instance": True
+                        'instance': True
                     }
                 },
-                "nonce": '{:.20f}'.format(time.time())
+                'nonce': '{:.20f}'.format(time.time())
             }
         )
         self.is_showing = True
@@ -59,17 +88,6 @@ class DiscordRPC:
     def close(self):
         self.rpc.close()
         self.is_showing = False
-
-
-class Player:
-    def __init__(self, title, artist, image, quality, now_time, song_len, status):
-        self.title = title
-        self.artist = artist
-        self.image = image
-        self.quality = quality
-        self.now_time = now_time
-        self.song_len = song_len
-        self.status = status
 
 
 class KKBOX:
@@ -129,15 +147,13 @@ class KKBOX:
     def get_player(self):
         title       = self._get_xpath("//span[@class='_inner_16fkr_30']//a")
         artist      = self._get_xpath("//a[@class='_artist_16fkr_45']")
+        track_url   = self._get_xpath("//div[@class='_cover_16fkr_6']//a", 'href')
         image       = self._get_xpath("//div[@class='_cover_16fkr_6']//a//img", 'src')
         quality     = self._get_xpath("//a[@class='_icon-link_16fkr_38']//i", 'title')
         now_time    = self._get_xpath("//div[@class='_time-info_czveb_1 _time-info_6q6zi_19']//span[1]")
         song_len    = self._get_xpath("//div[@class='_time-info_czveb_1 _time-info_6q6zi_19']//span[2]")
         play        = self._get_xpath("//button[@class='_button-icon_1h9pm_1 k-icon _opacity-transition_1h9pm_30 k-icon-now_playing-play control']//span[1]")
         pause       = self._get_xpath("//button[@class='_button-icon_1h9pm_1 k-icon _opacity-transition_1h9pm_30 k-icon-now_playing-pause control']//span[1]")
-        
-        if '' in (title, artist, image, quality, now_time, song_len):
-            return Player('', '', '', '', 0, 0, '')
         
         now_time = int(now_time[0]) * 600 + int(now_time[1]) * 60 + int(now_time[3]) * 10 + int(now_time[4])
         song_len = int(song_len[0]) * 600 + int(song_len[1]) * 60 + int(song_len[3]) * 10 + int(song_len[4])
@@ -148,7 +164,10 @@ class KKBOX:
         elif play == '' and pause != '':
             status = 'playing'
         
-        return Player(title, artist, image, quality, now_time, song_len, status)
+        if track_url:
+            track_url = track_url.replace('http://localhost:55680/', 'https://play.kkbox.com/')
+        
+        return Player(title, artist, track_url, image, quality, now_time, song_len, status)
     
     def _get_xpath(self, xpath, attr='innerText'):
         xpath_func = f'''
@@ -158,6 +177,7 @@ class KKBOX:
             }})();
         '''
         return self.tab.Runtime.evaluate(expression=xpath_func)['result']['value']
+
 
 if __name__ == '__main__':
     kkbox_exe_path = Path(f'{os.getenv("USERPROFILE")}/AppData/Local/Programs/@universalelectron-shell/KKBOX.exe')
@@ -174,34 +194,25 @@ if __name__ == '__main__':
         app.logger.error('Discord RPC connection failed')
         sys.exit(1)
     
+    last_song = None
+    last_now_time = 0
+    
     while True:
         try:
             player = app.get_player()
             
-            if player.status == 'playing' and not rpc.is_showing:
-                
-                app.logger.info(f'status: {player.status}')
-                app.logger.info(f'title: {player.title}')
-                app.logger.info(f'artist: {player.artist}')
-                app.logger.info(f'quality: {player.quality}')
-                app.logger.info(f'now_time: {player.now_time}')
-                app.logger.info(f'song_len: {player.song_len}\n')
-                
-                start_time = int(time.time() - player.now_time) * 1000
-                end_time = int(time.time() + player.song_len) * 1000
-                rpc.update(
-                    state       = player.artist,
-                    details     = player.title,
-                    large_text  = player.quality,
-                    large_image = player.image,
-                    small_image = 'https://imgur.com/BOIijD9.png',
-                    small_text  = 'KKBOX Discord RPC',
-                    start       = start_time,
-                    end         = end_time,
-                )
-            elif player.status == 'paused' and rpc.is_showing:
-                rpc.clear()
+            if player.have_empty():
+                continue
             
+            if player.status == 'playing' or last_song != player.title or last_now_time != player.now_time:
+                last_song = player.title
+                last_now_time = player.now_time
+                player.print_info(logger=app.logger)
+                rpc.update(player)
+            
+            elif player.status == 'paused':
+                rpc.clear()
+        
         except Exception as e:
             app.logger.error(f'Error: {e}')
             break

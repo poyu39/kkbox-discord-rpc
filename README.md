@@ -20,9 +20,9 @@
 
 ## ✨ 使用方法
 
-- 點此下載最新版本的 [KKBOX Discord RPC](https://github.com/poyu39/KKBOX_Discord_RPC/releases/download/v4.1.1/KKBOX_Discord_RPC_v4.1.1.exe)
+- 點此下載最新版本的 [KKBOX Discord RPC](https://github.com/poyu39/KKBOX_Discord_RPC/releases/download/v4.1.2/KKBOX_Discord_RPC_v4.1.2.exe)
 
 
-- 要顯示 KKBOX 的狀態於 Discord，請先執行 `KKBOX_Discord_RPC_v4.1.1.exe`，會自動開啟 KKBOX，此程式會在背景擷取播放內容，若不想使用此功能，可直接開啟官方 `KKBOX.exe`。
+- 要顯示 KKBOX 的狀態於 Discord，請先執行 `KKBOX_Discord_RPC_v4.1.2.exe`，會自動開啟 KKBOX，此程式會在背景擷取播放內容，若不想使用此功能，可直接開啟官方 `KKBOX.exe`。
 
 ---
