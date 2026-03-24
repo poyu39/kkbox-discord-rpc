@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import psutil
 import pychrome
@@ -34,7 +35,15 @@ class Player:
         logger.info(f'image: {self.image}\n')
     
     def have_empty(self):
-        return any(attr is None for attr in [self.title, self.artist, self.track_url, self.image, self.quality, self.now_time, self.song_len, self.status])
+        required_text_fields = [self.title, self.artist, self.track_url, self.image]
+        has_empty_text = any((not isinstance(field, str)) or (not field.strip()) for field in required_text_fields)
+        
+        invalid_time = (
+            not isinstance(self.now_time, int) or self.now_time < 0 or
+            not isinstance(self.song_len, int) or self.song_len <= 0
+        )
+        
+        return has_empty_text or invalid_time
 
 
 class DiscordRPC:
@@ -49,7 +58,39 @@ class DiscordRPC:
         except Exception as e:
             return False
     
+    def _normalize_http_url(self, value: str | None):
+        if not isinstance(value, str):
+            return None
+        
+        candidate = value.strip()
+        if not candidate:
+            return None
+        
+        if candidate.startswith('//'):
+            candidate = f'https:{candidate}'
+        elif candidate.startswith('/'):
+            candidate = f'https://play.kkbox.com{candidate}'
+        
+        parsed = urlsplit(candidate)
+        if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+            return None
+        
+        safe_path = quote(parsed.path or '/', safe='/%:@-._~!$&\'()*+,;=')
+        safe_query = quote(parsed.query, safe='=&:@-._~!$\'()*+,;/?')
+        return urlunsplit((parsed.scheme, parsed.netloc, safe_path, safe_query, ''))
+    
     def update(self, player: Player):
+        large_url = self._normalize_http_url(player.track_url)
+        assets = {
+            'large_image': player.image,
+            'large_text': player.quality if player.quality else 'No Quality',
+            'small_image': 'https://github.com/poyu39/kkbox-discord-rpc/blob/main/media/icon_128.png?raw=true',
+            'small_text': 'KKBOX Discord RPC',
+            'small_url': 'https://github.com/poyu39/kkbox-discord-rpc'
+        }
+        if large_url:
+            assets['large_url'] = large_url
+        
         start_time = time.time() - player.now_time
         end_time = start_time + player.song_len
         self.rpc.update(
@@ -65,14 +106,7 @@ class DiscordRPC:
                             'start': int(start_time) * 1000,
                             'end': int(end_time) * 1000
                         },
-                        'assets': {
-                            'large_image': player.image,
-                            'large_text': player.quality if player.quality else 'No Quality',
-                            'large_url': player.track_url,
-                            'small_image': 'https://github.com/poyu39/kkbox-discord-rpc/blob/main/media/icon_128.png?raw=true',
-                            'small_text': 'KKBOX Discord RPC',
-                            'small_url': 'https://github.com/poyu39/kkbox-discord-rpc'
-                        },
+                        'assets': assets,
                         'instance': True
                     }
                 },
@@ -80,6 +114,7 @@ class DiscordRPC:
             }
         )
         self.is_showing = True
+        return True
     
     def clear(self):
         self.rpc.clear()
@@ -144,30 +179,102 @@ class KKBOX:
                 return True
         return False
     
+    def _parse_mm_ss(self, value):
+        if not isinstance(value, str):
+            return None
+        
+        value = value.strip()
+        parts = value.split(':')
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            return None
+        
+        minutes, seconds = map(int, parts)
+        if seconds >= 60:
+            return None
+        
+        return minutes * 60 + seconds
+    
     def get_player(self):
-        title       = self._get_xpath("//span[@class='_inner_16fkr_30']//a")
-        artist      = self._get_xpath("//a[@class='_artist_16fkr_45']")
-        track_url   = self._get_xpath("//div[@class='_cover_16fkr_6']//a", 'href')
-        image       = self._get_xpath("//div[@class='_cover_16fkr_6']//a//img", 'src')
-        quality     = self._get_xpath("//a[@class='_icon-link_16fkr_38']//i", 'title')
-        now_time    = self._get_xpath("//div[@class='_time-info_czveb_1 _time-info_6q6zi_19']//span[1]")
-        song_len    = self._get_xpath("//div[@class='_time-info_czveb_1 _time-info_6q6zi_19']//span[2]")
-        play        = self._get_xpath("//button[@class='_button-icon_1h9pm_1 k-icon _opacity-transition_1h9pm_30 k-icon-now_playing-play control']//span[1]")
-        pause       = self._get_xpath("//button[@class='_button-icon_1h9pm_1 k-icon _opacity-transition_1h9pm_30 k-icon-now_playing-pause control']//span[1]")
+        player_data = self._get_player_dom_data()
         
-        now_time = int(now_time[0]) * 600 + int(now_time[1]) * 60 + int(now_time[3]) * 10 + int(now_time[4])
-        song_len = int(song_len[0]) * 600 + int(song_len[1]) * 60 + int(song_len[3]) * 10 + int(song_len[4])
-        
-        status = None
-        if play != '' and pause == '':
-            status = 'paused'
-        elif play == '' and pause != '':
-            status = 'playing'
+        title = player_data.get('title')
+        artist = player_data.get('artist')
+        track_url = player_data.get('track_url')
+        image = player_data.get('image')
+        quality = player_data.get('quality')
+        now_time = self._parse_mm_ss(player_data.get('now_time'))
+        song_len = self._parse_mm_ss(player_data.get('song_len'))
+        status = player_data.get('status')
         
         if track_url:
             track_url = track_url.replace('http://localhost:55680/', 'https://play.kkbox.com/')
         
         return Player(title, artist, track_url, image, quality, now_time, song_len, status)
+    
+    def _get_player_dom_data(self) -> dict:
+        evaluate_func = '''
+            (() => {
+                const pick = (selectors, attr = null) => {
+                    for (const selector of selectors) {
+                        const el = document.querySelector(selector);
+                        if (!el) continue;
+                        
+                        if (!attr) {
+                            const value = (el.textContent || '').trim();
+                            if (value) return value;
+                            continue;
+                        }
+                        
+                        const value = (el.getAttribute(attr) || '').trim();
+                        if (value) return value;
+                    }
+                    return '';
+                };
+                
+                const title = pick([
+                    'div[class*="_media-info_"] div[class*="_name_"] a[href*="/track/"]',
+                    'div[class*="_media-info_"] a[href*="/track/"]'
+                ]);
+                
+                const trackUrl = pick([
+                    'div[class*="_media-info_"] div[class*="_name_"] a[href*="/track/"]',
+                    'div[class*="_media-info_"] div[class*="_cover_"] a[href*="/track/"]',
+                    'div[class*="_media-info_"] a[href*="/track/"]'
+                ], 'href');
+                
+                const artist = pick([
+                    'div[class*="_media-info_"] a[href*="/artist/"]'
+                ]);
+                
+                const image = pick([
+                    'div[class*="_media-info_"] div[class*="_cover_"] img',
+                    'div[class*="_media-info_"] img'
+                ], 'src');
+                
+                const quality = pick([
+                    'div[class*="_media-info_"] [class*="_icon-link_"] i[title]',
+                    'div[class*="_media-info_"] i[title]'
+                ], 'title');
+                
+                const timeSpans = Array.from((document.querySelector('div[class*="_time-info_"]') || document).querySelectorAll('span'));
+                const nowTime = timeSpans[0] ? (timeSpans[0].textContent || '').trim() : '';
+                const songLen = timeSpans[1] ? (timeSpans[1].textContent || '').trim() : '';
+                
+                return {
+                    title,
+                    artist,
+                    track_url: trackUrl,
+                    image,
+                    quality,
+                    now_time: nowTime,
+                    song_len: songLen,
+                    status: null,
+                };
+            })();
+        '''
+        
+        result = self.tab.Runtime.evaluate(expression=evaluate_func, returnByValue=True)
+        return result.get('result', {}).get('value', {})
     
     def _get_xpath(self, xpath, attr='innerText'):
         xpath_func = f'''
@@ -195,7 +302,8 @@ if __name__ == '__main__':
         sys.exit(1)
     
     last_song = None
-    last_now_time = 0
+    last_now_time = None
+    last_status = 'paused'
     
     while True:
         try:
@@ -204,14 +312,27 @@ if __name__ == '__main__':
             if player.have_empty():
                 continue
             
-            if player.status == 'playing' or last_song != player.title or last_now_time != player.now_time:
-                last_song = player.title
-                last_now_time = player.now_time
-                player.print_info(logger=app.logger)
-                rpc.update(player)
+            if player.status not in ('playing', 'paused'):
+                if last_song != player.title:
+                    player.status = 'playing'
+                elif last_now_time is None:
+                    player.status = last_status
+                else:
+                    player.status = 'playing' if player.now_time != last_now_time else 'paused'
             
-            elif player.status == 'paused':
+            need_refresh_rpc = (last_song != player.title) or (last_status != player.status)
+            
+            if need_refresh_rpc and player.status == 'playing':
+                if rpc.update(player):
+                    player.print_info(logger=app.logger)
+            
+            elif need_refresh_rpc and player.status == 'paused':
+                player.print_info(logger=app.logger)
                 rpc.clear()
+            
+            last_song = player.title
+            last_now_time = player.now_time
+            last_status = player.status
         
         except Exception as e:
             app.logger.error(f'Error: {e}')
