@@ -154,3 +154,4 @@ cython_debug/
 # custom
 .vscode/settings.json
 storage/config.json
+SignTool-10.0.26100.14-x86/

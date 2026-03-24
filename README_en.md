@@ -20,8 +20,10 @@
 
 ## ✨ How to Use
 
-- Click here to download the latest version of [KKBOX Discord RPC](https://github.com/poyu39/kkbox-discord-rpc/releases/download/v4.1.2/KKBOX_Discord_RPC_v4.1.1.exe)
+- Click here to download the latest version of [KKBOX Discord RPC](https://github.com/poyu39/kkbox-discord-rpc/releases/download/v4.1.3/KKBOX_Discord_RPC_v4.1.3.exe)
 
-- To display KKBOX status on Discord, first run `KKBOX_Discord_RPC_v4.1.2.exe`, which will automatically open KKBOX. This program will capture playback content in the background. If you don't want to use this feature, you can directly open the official `KKBOX.exe`.
+- To display KKBOX status on Discord, first run `KKBOX_Discord_RPC_v4.1.3.exe`, which will automatically open KKBOX. This program will capture playback content in the background. If you don't want to use this feature, you can directly open the official `KKBOX.exe`.
 
 ---
+
+> This software uses a certificate signed with [SignTool](https://github.com/Delphier/SignTool/releases/tag/v10.0.26100.14) to ensure its integrity and security; however, this does not guarantee that Windows Defender SmartScreen will not flag it as malicious. If it is flagged incorrectly, please allow this software to run in the protection history.
